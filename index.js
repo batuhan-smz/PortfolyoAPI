@@ -33,7 +33,7 @@ const app = express();
 // --- Middleware'ler ---
 // CORS Ayarları: Sadece React uygulamanızın geldiği domaine izin vermek daha güvenlidir.
 // Örn: cors({ origin: 'http://localhost:3000' }) veya üretim için 'https://your-portfolio.com'
-app.use(cors({ origin: ['http://localhost:3000',process.env.FRONTEND_URL, ]}));
+app.use(cors({ origin: ['http://localhost:3000',process.env.FRONTEND_URL], credentials: true}));
 app.use(express.json()); // Gelen JSON body'lerini parse etmek için
 
 // --- API Rotaları (Endpoints) ---
