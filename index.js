@@ -5,50 +5,50 @@ const admin = require('firebase-admin');
 const path = require('path');
 //const adminRouter = require('./routes/admin');
 
-// --- Firebase Admin SDK Başlatma ---
-let serviceAccount;
-const serviceAccountJsonContent = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-const serviceAccountPath = process.env.FIREBASE_KEY_PATH;
+// --- Firebase Admin SDK Başlatma (Duplicate Check ile) ---
+let db; // db'yi burada tanımla
 
-if (serviceAccountJsonContent) {
-  // YÖNTEM 1: JSON İçeriği Varsa (Vercel'de bu çalışacak)
-  console.log("Firebase Admin: JSON içeriği ortam değişkeninden okunuyor.");
-  try {
-      serviceAccount = JSON.parse(serviceAccountJsonContent);
-  } catch (e) {
-      console.error("FIREBASE_SERVICE_ACCOUNT_JSON parse edilirken hata:", e);
-      process.exit(1);
+// Sadece HİÇ uygulama başlatılmamışsa initializeApp çağır
+if (!admin.apps.length) { // <<< Mevcut uygulama sayısını kontrol et
+  console.log("Firebase Admin: Başlatma işlemi deneniyor...");
+  let serviceAccount;
+  const serviceAccountJsonContent = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const serviceAccountPath = process.env.FIREBASE_KEY_PATH; // Yerel için
+
+  if (serviceAccountJsonContent) {
+      console.log("Firebase Admin: JSON içeriği ortam değişkeninden okunuyor.");
+      try { serviceAccount = JSON.parse(serviceAccountJsonContent); }
+      catch (e) { console.error("JSON parse hatası:", e); process.exit(1); }
+  } else if (serviceAccountPath) {
+      console.log(`Firebase Admin: Anahtar ${serviceAccountPath} yolundan okunuyor.`);
+      try { serviceAccount = require(serviceAccountPath); }
+      catch (e) { console.error(`Anahtar dosyası (${serviceAccountPath}) okuma hatası:`, e); process.exit(1); }
+  } else {
+      console.error("Firebase Admin kimlik bilgisi bulunamadı!"); process.exit(1);
   }
-} else if (serviceAccountPath) {
-  // YÖNTEM 2: Dosya Yolu Varsa (Yerelde bu çalışacak)
-  console.log(`Firebase Admin: Anahtar dosyası ${serviceAccountPath} yolundan okunuyor.`);
+
   try {
-      // Dosya yolunu kullanarak dosyayı require et
-      serviceAccount = require(serviceAccountPath);
-  } catch (e) {
-      console.error(`Firebase anahtar dosyası (${serviceAccountPath}) okunurken/require edilirken hata:`, e);
-      process.exit(1);
+      admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      console.log("Firebase Admin SDK başarıyla başlatıldı.");
+  } catch (error) {
+      console.error("Firebase Admin SDK başlatılırken hata oluştu (muhtemelen zaten vardı):", error);
+      // Eğer zaten varsa bu hatayı görmezden gelebiliriz veya sadece loglayabiliriz.
+      // process.exit(1); // Buradan çıkmak yerine devam edelim.
   }
 } else {
-  // Eğer ikisi de tanımlı değilse hata ver
-  console.error("Firebase Admin kimlik bilgisi bulunamadı! FIREBASE_SERVICE_ACCOUNT_JSON (Vercel için) veya FIREBASE_KEY_PATH (Yerel için) ortam değişkenlerini kontrol edin.");
-  process.exit(1);
+    console.log("Firebase Admin: Varsayılan uygulama zaten başlatılmış.");
 }
 
-// Firebase'i başlat
+// db örneğini her durumda almaya çalış (başlatılmış olması lazım)
 try {
-  admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-      // databaseURL: process.env.FIREBASE_DATABASE_URL // Gerekliyse
-  });
-  console.log("Firebase Admin SDK başarıyla başlatıldı.");
-} catch (error) {
-  console.error("Firebase Admin SDK başlatılırken hata oluştu:", error);
-  process.exit(1);
+    db = admin.firestore();
+    console.log("Firestore DB örneği alındı.");
+} catch(error) {
+    console.error("Firestore DB örneği alınırken hata:", error);
+    // DB olmadan API çalışmaz, burada çıkmak mantıklı olabilir
+     process.exit(1);
 }
-
-// Firestore veritabanı örneğini alın
-const db = admin.firestore();
+// --- Firebase Init Sonu ---
 
 const app = express();
 
@@ -68,26 +68,28 @@ app.use(express.urlencoded({ extended: true }));
 // Middleware fonksiyonu artık burada tanımlı değil
 
 // --- Rotaları Bağlama ---
-app.use('/admin', adminRouter); // <<< /admin ile başlayan tüm istekleri adminRouter'a yönlendir
+//app.use('/admin', adminRouter); // <<< /admin ile başlayan tüm istekleri adminRouter'a yönlendir
 // app.use('/api', apiRouter); // <<< Eğer API rotalarını da ayırdıysan
 
+function checkDb(db){
+    if (!db) { // <<< db örneği var mı kontrol et
+      console.error("GET /api/projects: DB başlatılamamış!");
+      return res.status(500).send("Sunucu hatası: Veritabanı bağlantısı yok.");
+  }
+}
 
 // --- API Rotaları (Endpoints) ---
-// GET /api/projects - Tüm projeleri getir (Herkese Açık)
+
+// ÖNEMLİ: Artık tüm route handler'lar 'db' değişkenini kullanmalı ve varlığını kontrol etmeli
 app.get('/api/projects', async (req, res) => {
+  checkDb(db);
   try {
     const projectsRef = db.collection('projects');
-    const snapshot = await projectsRef.orderBy('createdAt', 'desc').get(); // Örn: Tarihe göre sırala
-
-    if (snapshot.empty) {
-      return res.status(200).json([]);
-    }
-
+    const snapshot = await projectsRef.orderBy('createdAt', 'desc').get();
     let projects = [];
-    snapshot.forEach(doc => {
-      projects.push({ id: doc.id, ...doc.data() });
-    });
-
+    if (!snapshot.empty) {
+        snapshot.forEach(doc => projects.push({ id: doc.id, ...doc.data() }));
+    }
     res.status(200).json(projects);
   } catch (error) {
     console.error("Error getting projects: ", error);
@@ -97,6 +99,7 @@ app.get('/api/projects', async (req, res) => {
 
 // GET /api/projects/:id - Tek bir projeyi getir (Herkese Açık)
 app.get('/api/projects/:id', async (req, res) => {
+  checkDb(db);
     try {
         const projectId = req.params.id;
         const projectRef = db.collection('projects').doc(projectId);
@@ -123,6 +126,7 @@ app.get('/api/projects/:id', async (req, res) => {
 
 // Örnek: Firebase Auth ID Token Doğrulama Middleware'i
 const checkAuth = async (req, res, next) => {
+  checkDb(db);
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     const idToken = req.headers.authorization.split('Bearer ')[1];
     try {
@@ -144,6 +148,7 @@ const checkAuth = async (req, res, next) => {
 
 // POST /api/projects - Yeni proje ekle (Korumalı)
 app.post('/api/projects', checkAuth, async (req, res) => {
+  checkDb(db);
   try {
     const { title, description, technologies, imageUrl, projectUrl, repoUrl } = req.body;
 
@@ -173,6 +178,7 @@ app.post('/api/projects', checkAuth, async (req, res) => {
 
 // PUT /api/projects/:id - Projeyi güncelle (Korumalı)
 app.put('/api/projects/:id', checkAuth, async (req, res) => {
+  checkDb(db);
     try {
         const projectId = req.params.id;
         const projectRef = db.collection('projects').doc(projectId);
@@ -199,6 +205,7 @@ app.put('/api/projects/:id', checkAuth, async (req, res) => {
 
  // DELETE /api/projects/:id - Projeyi sil (Korumalı)
 app.delete('/api/projects/:id', checkAuth, async (req, res) => {
+  checkDb(db);
     try {
         const projectId = req.params.id;
         const projectRef = db.collection('projects').doc(projectId);
