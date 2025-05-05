@@ -5,7 +5,7 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const session = require('express-session');
 const path = require('path');
-// const adminRouterFn = require('./routes/admin'); // <<< Admin router fonksiyonunu import edeceğiz (henüz değil)
+const adminRouterFn = require('./routes/admin'); // <<< Admin router fonksiyonunu import edeceğiz (henüz değil)
 // const { checkAuth } = require('./middleware/firebaseAuth'); // <<< Auth middleware'ini de taşıyabiliriz
 
 // --- Firebase Admin SDK Başlatma (Doğru Hali) ---
@@ -82,7 +82,8 @@ const checkAuth = async (req, res, next) => { // <<< Bunu da middleware klasör�
 };
 
 // --- Rotaları Bağlama ---
-// app.use('/admin', adminRouterFn(db)); // <<< Admin router'ı db parametresi ile bağlayacağız (henüz değil)
+const adminRouter = adminRouterFn(db, admin); // <<< Router fonksiyonunu db ve admin ile çağır
+app.use('/admin', adminRouter); // <<< Admin router'ını /admin yoluna bağla
 
 // --- API Rotaları ---
 // Tüm API rotaları için db kontrolü eklendi
