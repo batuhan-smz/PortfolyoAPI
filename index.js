@@ -2,27 +2,49 @@ require('dotenv').config(); // .env dosyasındaki değişkenleri yükler
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+const path = require('path');
+const adminRouter = require('./routes/admin');
 
 // --- Firebase Admin SDK Başlatma ---
-const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+let serviceAccount;
+const serviceAccountJsonContent = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+const serviceAccountPath = process.env.FIREBASE_KEY_PATH;
 
-if (!serviceAccountJson) {
-  console.error('Firebase Service Account JSON bulunamadı! Ortam değişkenini kontrol et: FIREBASE_SERVICE_ACCOUNT_JSON');
-  process.exit(1); // Hata durumunda çıkış yap
+if (serviceAccountJsonContent) {
+  // YÖNTEM 1: JSON İçeriği Varsa (Vercel'de bu çalışacak)
+  console.log("Firebase Admin: JSON içeriği ortam değişkeninden okunuyor.");
+  try {
+      serviceAccount = JSON.parse(serviceAccountJsonContent);
+  } catch (e) {
+      console.error("FIREBASE_SERVICE_ACCOUNT_JSON parse edilirken hata:", e);
+      process.exit(1);
+  }
+} else if (serviceAccountPath) {
+  // YÖNTEM 2: Dosya Yolu Varsa (Yerelde bu çalışacak)
+  console.log(`Firebase Admin: Anahtar dosyası ${serviceAccountPath} yolundan okunuyor.`);
+  try {
+      // Dosya yolunu kullanarak dosyayı require et
+      serviceAccount = require(serviceAccountPath);
+  } catch (e) {
+      console.error(`Firebase anahtar dosyası (${serviceAccountPath}) okunurken/require edilirken hata:`, e);
+      process.exit(1);
+  }
+} else {
+  // Eğer ikisi de tanımlı değilse hata ver
+  console.error("Firebase Admin kimlik bilgisi bulunamadı! FIREBASE_SERVICE_ACCOUNT_JSON (Vercel için) veya FIREBASE_KEY_PATH (Yerel için) ortam değişkenlerini kontrol edin.");
+  process.exit(1);
 }
 
+// Firebase'i başlat
 try {
-    // JSON string'ini parse et
-    const serviceAccount = JSON.parse(serviceAccountJson);
-
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-        // Eğer databaseURL gerekiyorsa ekle: databaseURL: process.env.FIREBASE_DATABASE_URL
-    });
-    console.log("Firebase Admin SDK başarıyla başlatıldı.");
+  admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+      // databaseURL: process.env.FIREBASE_DATABASE_URL // Gerekliyse
+  });
+  console.log("Firebase Admin SDK başarıyla başlatıldı.");
 } catch (error) {
-    console.error("Firebase Admin SDK başlatılırken hata oluştu:", error);
-    process.exit(1);
+  console.error("Firebase Admin SDK başlatılırken hata oluştu:", error);
+  process.exit(1);
 }
 
 // Firestore veritabanı örneğini alın
@@ -30,14 +52,27 @@ const db = admin.firestore();
 
 const app = express();
 
+// --- Express Ayarları ---
+app.set('view engine', 'ejs'); // <<< Express'e view engine olarak EJS kullanacağını söyle
+app.set('views', path.join(__dirname, 'views')); // <<< View (şablon) dosyalarının nerede bulunacağını belirt ('views' klasörü)
+
 // --- Middleware'ler ---
-// CORS Ayarları: Sadece React uygulamanızın geldiği domaine izin vermek daha güvenlidir.
-// Örn: cors({ origin: 'http://localhost:3000' }) veya üretim için 'https://your-portfolio.com'
-app.use(cors({ origin: ['http://localhost:3000',process.env.FRONTEND_URL], credentials: true}));
-app.use(express.json()); // Gelen JSON body'lerini parse etmek için
+app.use(cors({origin: [
+  'http://localhost:3000', // Next.js yerel geliştirme adresin (port farklıysa değiştir)
+  process.env.FRONTEND_URL  // Vercel'e deploy ettiğin frontend adresin (.env'den gelecek)
+  // Başka izin vermek istediğin adresler varsa buraya ekle
+],
+credentials: true}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// Middleware fonksiyonu artık burada tanımlı değil
+
+// --- Rotaları Bağlama ---
+app.use('/admin', adminRouter); // <<< /admin ile başlayan tüm istekleri adminRouter'a yönlendir
+// app.use('/api', apiRouter); // <<< Eğer API rotalarını da ayırdıysan
+
 
 // --- API Rotaları (Endpoints) ---
-
 // GET /api/projects - Tüm projeleri getir (Herkese Açık)
 app.get('/api/projects', async (req, res) => {
   try {
@@ -78,7 +113,6 @@ app.get('/api/projects/:id', async (req, res) => {
     }
 });
 
-
 // --- KORUMALI ROTALAR İÇİN AUTH MIDDLEWARE ---
 // İki Yaklaşım Var:
 // 1. Firebase Authentication Kullanımı (Önerilen):
@@ -107,7 +141,6 @@ const checkAuth = async (req, res, next) => {
     return res.status(401).send('Unauthorized: No token provided');
   }
 };
-
 
 // POST /api/projects - Yeni proje ekle (Korumalı)
 app.post('/api/projects', checkAuth, async (req, res) => {
@@ -185,4 +218,15 @@ app.delete('/api/projects/:id', checkAuth, async (req, res) => {
 });
 
 
-module.exports = app;
+
+// ---- Sunucu Başlatma ve Export ----
+// Yerelde çalıştırmak için listen kısmı kalabilir, Vercel için export gerekli
+if (process.env.NODE_ENV !== 'production') { // Veya Vercel dışı bir ortam kontrolü
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`API Server running on port ${PORT}`);
+      // console.log(`AdminJS panelini http://localhost:<span class="math-inline">\{PORT\}</span>{adminJs.options.rootPath} adresinde deneyebilirsin (henüz login yok)`);
+    });
+}
+
+module.exports = { app, db };

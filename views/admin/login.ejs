@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Girişi</title>
+    <style> /* Temel Stiller */
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f4f4f4; margin: 0; }
+        .login-container { background-color: white; padding: 30px 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 350px; }
+        h2 { text-align: center; color: #333; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: bold; }
+        input[type="email"], input[type="password"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 1rem; }
+        button { padding: 12px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        .error { color: #d93025; margin-top: 15px; text-align: center; font-size: 0.9em; border: 1px solid #d93025; background-color: #fbeae5; padding: 8px; border-radius: 4px;}
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Admin Paneli Girişi</h2>
+        <%# Hata varsa göster %>
+        <% if (typeof error !== 'undefined' && error) { %>
+            <p class="error"><%= error %></p>
+        <% } %>
+        <%# Formun method="POST" ve action="/admin/login" olduğundan emin ol %>
+        <form action="/admin/login" method="POST">
+            <div class="form-group">
+                <label for="email">E-posta:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Şifre:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Giriş Yap</button>
+        </form>
+    </div>
+</body>
+</html>
