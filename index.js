@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const path = require('path');
-const adminRouter = require('./routes/admin');
+//const adminRouter = require('./routes/admin');
 
 // --- Firebase Admin SDK Başlatma ---
 let serviceAccount;
