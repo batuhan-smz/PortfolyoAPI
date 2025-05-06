@@ -81,6 +81,15 @@ const checkAuth = async (req, res, next) => { // <<< Bunu da middleware klasör�
     }
 };
 
+//*********************************************************
+// <<< YENİ: KÖK YOLA GELEN İSTEKLERİ YÖNLENDİRME >>>
+//*********************************************************
+app.get('/', (req, res) => {
+    // Doğrudan /admin/login yoluna yönlendir
+    res.redirect('/admin/login');
+  });
+  //*********************************************************
+
 // --- Rotaları Bağlama ---
 const adminRouter = adminRouterFn(db, admin); // <<< Router fonksiyonunu db ve admin ile çağır
 app.use('/admin', adminRouter); // <<< Admin router'ını /admin yoluna bağla
