@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%# Dinamik başlık %>
+    <title><%= editing ? 'Projeyi Düzenle: ' + project.title : 'Yeni Proje Ekle' %></title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        .container { max-width: 700px; margin: auto; background-color: #fff; padding: 20px 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: #555; }
+        input[type="text"], input[type="url"], textarea {
+            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 0.95rem;
+        }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn-container { margin-top: 25px; display: flex; gap: 10px; }
+        .btn { padding: 10px 18px; border-radius: 4px; text-decoration: none; cursor: pointer; border: none; font-size: 0.95rem; font-weight: 500; }
+        .btn-primary { background-color: #0d6efd; color: white; }
+        .btn-primary:hover { background-color: #0b5ed7; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5c636a; }
+        .error { color: #d93025; margin-top: 15px; font-size: 0.9em; }
+    </style>
+</head><body>
+    <div class="container">
+        <h1><%= editing ? 'Projeyi Düzenle' : 'Yeni Proje Ekle' %></h1>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <p class="error"><%= error %></p>
+        <% } %>
+
+        <%# Form action ve method %>
+        <form action="<%= editing ? '/admin/projects/edit/' + project.id : '/admin/projects/new' %>" method="POST">
+            <div class="form-group">
+                <label for="title">Başlık:</label>
+                <%# project.title undefined olabilir, || '' ile kontrol et %>
+                <input type="text" id="title" name="title" value="<%= project.title || '' %>" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Açıklama:</label>
+                <textarea id="description" name="description" required><%= project.description || '' %></textarea>
+            </div>
+            <div class="form-group">
+                <label for="technologies">Teknolojiler (Virgülle ayırın):</label>
+                <input type="text" id="technologies" name="technologies" value="<%= project.technologies ? project.technologies.join(',') : '' %>">
+            </div>
+            <div class="form-group">
+                <label for="imageUrl">Resim URL:</label>
+                <input type="url" id="imageUrl" name="imageUrl" value="<%= project.imageUrl || '' %>">
+            </div>
+            <div class="form-group">
+                <label for="projectUrl">Proje URL:</label>
+                <input type="url" id="projectUrl" name="projectUrl" value="<%= project.projectUrl || '' %>">
+            </div>
+            <div class="form-group">
+                <label for="repoUrl">Repo URL:</label>
+                <input type="url" id="repoUrl" name="repoUrl" value="<%= project.repoUrl || '' %>">
+            </div>
+            <div class="btn-container">
+                <button type="submit" class="btn btn-primary"><%= editing ? 'Güncelle' : 'Ekle' %></button>
+                <a href="/admin/dashboard" class="btn btn-secondary">İptal</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
