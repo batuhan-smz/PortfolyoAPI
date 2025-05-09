@@ -43,7 +43,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 // --- Middleware'ler (Doğru Sırada) ---
 app.use(cors({
-    origin: [ 'http://localhost:3000', process.env.FRONTEND_URL ],
+    origin: [ 'http://localhost:3000', process.env.FRONTEND_URL,'https://www.batuhansemiz.com','https://batuhansemiz.com' ],
     credentials: true
 }));
 app.use(express.json());
